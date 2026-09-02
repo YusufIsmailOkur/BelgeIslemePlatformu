@@ -1,0 +1,27 @@
+@{
+    ViewData["Title"] = "Belge Yükle";
+}
+
+<div class="container py-5">
+    <h1 class="h3 mb-4">Belge Yükle</h1>
+    <p class="text-muted">PDF, Excel (XLS/XLSX) veya CSV dosyalarınızı sürükleyip bırakın ya da seçin.</p>
+
+    <form id="uploadForm">
+        @Html.AntiForgeryToken()
+        <div id="dropZone" class="border border-2 border-dashed rounded p-5 text-center bg-light">
+            <i class="fa-solid fa-cloud-arrow-up fa-2x mb-3 text-secondary"></i>
+            <p class="mb-2">Dosyaları buraya sürükleyip bırakın</p>
+            <p class="text-muted mb-3">veya</p>
+            <label class="btn btn-primary mb-0">
+                Dosya Seç
+                <input type="file" id="fileInput" name="files" multiple accept=".pdf,.xls,.xlsx,.csv" hidden />
+            </label>
+        </div>
+    </form>
+
+    <ul id="fileList" class="list-group mt-4"></ul>
+</div>
+
+@section Scripts {
+    <script src="~/js/document-upload.js"></script>
+}

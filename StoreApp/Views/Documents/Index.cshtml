@@ -1,0 +1,47 @@
+@model List<Document>
+@{
+    ViewData["Title"] = "Belgeler";
+}
+
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Belgeler</h1>
+        @if (User.IsInRole(nameof(RoleCode.Operator)) || User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin)))
+        {
+            <a class="btn btn-primary" asp-controller="Documents" asp-action="Upload">Belge Yükle</a>
+        }
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <p class="text-muted">Henüz yüklenmiş belge yok.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Dosya Adı</th>
+                        <th>Tür</th>
+                        <th>Durum</th>
+                        <th>Yükleme Tarihi</th>
+                        <th>Yükleyen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var document in Model)
+                    {
+                        <tr>
+                            <td>@document.OriginalFileName</td>
+                            <td>@document.DocumentType.ToDisplayName()</td>
+                            <td><span class="badge @document.Status.ToBadgeClass()">@document.Status.ToDisplayName()</span></td>
+                            <td>@document.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@document.UploadedByUser.FullName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

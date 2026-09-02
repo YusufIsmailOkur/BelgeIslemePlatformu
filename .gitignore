@@ -15,6 +15,11 @@ StoreApp/App_Data/uploads/*
 *.env
 appsettings.*.local.json
 
+# Local SQLite dev database (Hafta 2 geçici; PostgreSQL'e geçince kaldırılacak)
+*.db
+*.db-shm
+*.db-wal
+
 # OS
 Thumbs.db
 .DS_Store

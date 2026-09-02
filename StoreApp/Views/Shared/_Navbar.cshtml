@@ -1,3 +1,5 @@
+@using System.Security.Claims
+
 <nav class="navbar border-bottom navbar-expand-lg bg-secondary">
   <div class="container-fluid">
     <a class="navbar-brand" href="/">Belge Platformu</a>
@@ -5,8 +7,33 @@
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-      <div class="navbar-nav">
+      <div class="navbar-nav me-auto">
         <a class="nav-link active" aria-current="page" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+          <a class="nav-link" asp-controller="Documents" asp-action="Index">Belgeler</a>
+        }
+        @if (User.IsInRole(nameof(RoleCode.Operator)) || User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin)))
+        {
+          <a class="nav-link" asp-controller="Documents" asp-action="Upload">Belge Yükle</a>
+        }
+      </div>
+      <div class="navbar-nav">
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+          <span class="nav-link disabled">
+            @User.Identity!.Name
+            <span class="badge text-bg-light">@User.FindFirstValue(ClaimTypes.Role)</span>
+          </span>
+          <form asp-controller="Account" asp-action="Logout" method="post" class="d-flex">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-light btn-sm">Çıkış Yap</button>
+          </form>
+        }
+        else
+        {
+          <a class="nav-link" asp-controller="Account" asp-action="Login">Giriş Yap</a>
+        }
       </div>
     </div>
   </div>
