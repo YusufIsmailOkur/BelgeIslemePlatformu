@@ -7,6 +7,7 @@ using StoreApp.Authorization;
 using StoreApp.Data;
 using StoreApp.Models.Entities;
 using StoreApp.Models.Enums;
+using StoreApp.Models.Fields;
 using StoreApp.Services.Abstractions;
 using StoreApp.ViewModels;
 
@@ -136,6 +137,65 @@ namespace StoreApp.Controllers
                 : null;
 
             return View(new DocumentPreviewViewModel { Document = document, Tables = tables, OcrPageResults = ocrPageResults, Extraction = extraction });
+        }
+
+        [HttpPost]
+        [Authorize(Policy = Policies.OperatorOrAbove)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveFields(int id, Dictionary<string, string> headerFields, CancellationToken cancellationToken)
+        {
+            var document = await _db.Documents
+                .Include(d => d.Content)
+                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
+            if (document?.Content is null)
+            {
+                return NotFound();
+            }
+
+            var extraction = document.Content.ExtractedFieldsJson is { } extractedFieldsJson
+                ? JsonSerializer.Deserialize<ExtractionResult>(extractedFieldsJson)
+                : null;
+
+            var updatedHeaderFields = extraction is not null
+                ? new Dictionary<string, ExtractedField>(extraction.HeaderFields)
+                : new Dictionary<string, ExtractedField>();
+
+            foreach (var field in DocumentFieldSchema.HeaderFields)
+            {
+                if (!headerFields.TryGetValue(field.Key, out var value))
+                {
+                    continue;
+                }
+
+                // Kullanıcının elle girdiği/düzelttiği değer kesin kabul edilir (confidence %100,
+                // Source="Manual"); kural/AI'nin bulduğu önceki değerin üzerine yazılır.
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    updatedHeaderFields.Remove(field.Key);
+                }
+                else
+                {
+                    updatedHeaderFields[field.Key] = new ExtractedField(field.Key, value.Trim(), 1d, "Manual");
+                }
+            }
+
+            var lineItems = extraction?.LineItems ?? new List<ExtractedLineItem>();
+            var updatedExtraction = new ExtractionResult(updatedHeaderFields, lineItems);
+
+            document.Content.ExtractedFieldsJson = updatedHeaderFields.Count > 0 || lineItems.Count > 0
+                ? JsonSerializer.Serialize(updatedExtraction)
+                : null;
+            document.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _auditLogService.LogAsync(
+                "Document", document.Id, "FieldsEdited",
+                newValue: updatedHeaderFields, changedBy: userId, cancellationToken: cancellationToken);
+
+            return RedirectToAction(nameof(Preview), new { id });
         }
 
         [HttpPost]
