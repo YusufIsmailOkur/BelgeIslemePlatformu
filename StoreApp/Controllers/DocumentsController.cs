@@ -21,19 +21,22 @@ namespace StoreApp.Controllers
         private readonly IFileStorageService _fileStorageService;
         private readonly IAuditLogService _auditLogService;
         private readonly IDocumentProcessingQueue _documentProcessingQueue;
+        private readonly IDocumentPersistenceService _documentPersistenceService;
 
         public DocumentsController(
             AppDbContext db,
             IFileValidationService fileValidationService,
             IFileStorageService fileStorageService,
             IAuditLogService auditLogService,
-            IDocumentProcessingQueue documentProcessingQueue)
+            IDocumentProcessingQueue documentProcessingQueue,
+            IDocumentPersistenceService documentPersistenceService)
         {
             _db = db;
             _fileValidationService = fileValidationService;
             _fileStorageService = fileStorageService;
             _auditLogService = auditLogService;
             _documentProcessingQueue = documentProcessingQueue;
+            _documentPersistenceService = documentPersistenceService;
         }
 
         [HttpGet]
@@ -117,6 +120,9 @@ namespace StoreApp.Controllers
             var document = await _db.Documents
                 .Include(d => d.UploadedByUser)
                 .Include(d => d.Content)
+                .Include(d => d.Customer)
+                .Include(d => d.LineItems).ThenInclude(li => li.Product)
+                .Include(d => d.LineItems).ThenInclude(li => li.Fields)
                 .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
 
             if (document is null)
@@ -260,7 +266,8 @@ namespace StoreApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken)
         {
-            var document = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+            var document = await _db.Documents.Include(d => d.Content)
+                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
             if (document is null)
             {
                 return NotFound();
@@ -273,13 +280,23 @@ namespace StoreApp.Controllers
                 return RedirectToAction(nameof(Preview), new { id });
             }
 
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            // Onay ve ilişkisel tablolara kalıcı aktarım (Föy 08) tek transaction'da yapılır:
+            // aktarım başarısız olursa belge "Approved" durumunda da kalmamalıdır.
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+
             document.Status = DocumentStatus.Approved;
             document.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync(cancellationToken);
-
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _auditLogService.LogAsync(
                 "Document", document.Id, "Approved", changedBy: userId, cancellationToken: cancellationToken);
+
+            await _documentPersistenceService.PersistApprovedDocumentAsync(document, cancellationToken);
+            await _auditLogService.LogAsync(
+                "Document", document.Id, "SavedToSql", changedBy: userId, cancellationToken: cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
 
             return RedirectToAction(nameof(Preview), new { id });
         }

@@ -16,6 +16,10 @@ namespace StoreApp.Data
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Document> Documents => Set<Document>();
         public DbSet<DocumentContent> DocumentContents => Set<DocumentContent>();
+        public DbSet<Customer> Customers => Set<Customer>();
+        public DbSet<Product> Products => Set<Product>();
+        public DbSet<DocumentLineItem> DocumentLineItems => Set<DocumentLineItem>();
+        public DbSet<DocumentField> DocumentFields => Set<DocumentField>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -50,6 +54,10 @@ namespace StoreApp.Data
                     .WithMany()
                     .HasForeignKey(d => d.UploadedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(d => d.Customer)
+                    .WithMany()
+                    .HasForeignKey(d => d.CustomerId)
+                    .OnDelete(DeleteBehavior.Restrict);
                 // Soft delete: silinen belgeler varsayılan sorgulardan otomatik hariç tutulur.
                 entity.HasQueryFilter(d => d.DeletedAt == null);
             });
@@ -63,6 +71,45 @@ namespace StoreApp.Data
                     .OnDelete(DeleteBehavior.Cascade);
                 // Document ile aynı soft-delete filtresi: silinen belgenin içeriği de gizlenir.
                 entity.HasQueryFilter(c => c.Document.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<Customer>(entity =>
+            {
+                entity.HasIndex(c => c.NormalizedName).IsUnique();
+            });
+
+            modelBuilder.Entity<Product>(entity =>
+            {
+                entity.HasIndex(p => p.NormalizedName).IsUnique();
+            });
+
+            modelBuilder.Entity<DocumentLineItem>(entity =>
+            {
+                entity.HasOne(li => li.Document)
+                    .WithMany(d => d.LineItems)
+                    .HasForeignKey(li => li.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(li => li.Product)
+                    .WithMany()
+                    .HasForeignKey(li => li.ProductId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                // Document ile aynı soft-delete filtresi: silinen belgenin kalemleri de gizlenir.
+                entity.HasQueryFilter(li => li.Document.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<DocumentField>(entity =>
+            {
+                entity.HasIndex(f => f.DocumentId);
+                entity.HasOne(f => f.Document)
+                    .WithMany(d => d.Fields)
+                    .HasForeignKey(f => f.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(f => f.LineItem)
+                    .WithMany(li => li.Fields)
+                    .HasForeignKey(f => f.LineItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                // Document ile aynı soft-delete filtresi: silinen belgenin alanları da gizlenir.
+                entity.HasQueryFilter(f => f.Document.DeletedAt == null);
             });
         }
 

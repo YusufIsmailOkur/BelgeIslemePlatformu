@@ -9,6 +9,7 @@ using StoreApp.Services.Classification;
 using StoreApp.Services.Extraction;
 using StoreApp.Services.Ocr;
 using StoreApp.Services.Parsing;
+using StoreApp.Services.Persistence;
 
 // Windows-1254 gibi eski kod sayfalarını (BOM'suz Türkçe CSV tespiti için) kullanılabilir kılar.
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -42,6 +43,7 @@ builder.Services.AddSingleton<IRuleBasedFieldExtractor, RuleBasedFieldExtractor>
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
 builder.Services.AddHttpClient<IAiFieldExtractor, GeminiFieldExtractor>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
+builder.Services.AddScoped<IDocumentPersistenceService, DocumentPersistenceService>();
 builder.Services.AddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();
 builder.Services.AddHostedService<DocumentProcessingWorker>();
 
