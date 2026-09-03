@@ -201,6 +201,63 @@ namespace StoreApp.Controllers
         [HttpPost]
         [Authorize(Policy = Policies.OperatorOrAbove)]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveLineItems(int id, List<Dictionary<string, string>>? lineItems, CancellationToken cancellationToken)
+        {
+            var document = await _db.Documents
+                .Include(d => d.Content)
+                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
+            if (document?.Content is null)
+            {
+                return NotFound();
+            }
+
+            var extraction = document.Content.ExtractedFieldsJson is { } extractedFieldsJson
+                ? JsonSerializer.Deserialize<ExtractionResult>(extractedFieldsJson)
+                : null;
+
+            var headerFields = extraction?.HeaderFields ?? new Dictionary<string, ExtractedField>();
+
+            // Kalem tablosu satır bazlı stabil kimlik taşımaz (kullanıcı serbestçe satır
+            // ekleyip/silebilir); bu yüzden alan bazında birleştirme yerine tüm liste
+            // gönderilen değerlerle değiştirilir.
+            var updatedLineItems = new List<ExtractedLineItem>();
+            foreach (var row in lineItems ?? new List<Dictionary<string, string>>())
+            {
+                var fields = new Dictionary<string, ExtractedField>();
+                foreach (var field in DocumentFieldSchema.LineItemFields)
+                {
+                    if (row.TryGetValue(field.Key, out var value) && !string.IsNullOrWhiteSpace(value))
+                    {
+                        fields[field.Key] = new ExtractedField(field.Key, value.Trim(), 1d, "Manual");
+                    }
+                }
+
+                if (fields.Count > 0)
+                {
+                    updatedLineItems.Add(new ExtractedLineItem(fields));
+                }
+            }
+
+            var updatedExtraction = new ExtractionResult(headerFields, updatedLineItems);
+            document.Content.ExtractedFieldsJson = headerFields.Count > 0 || updatedLineItems.Count > 0
+                ? JsonSerializer.Serialize(updatedExtraction)
+                : null;
+            document.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _auditLogService.LogAsync(
+                "Document", document.Id, "LineItemsEdited",
+                newValue: updatedLineItems, changedBy: userId, cancellationToken: cancellationToken);
+
+            return RedirectToAction(nameof(Preview), new { id });
+        }
+
+        [HttpPost]
+        [Authorize(Policy = Policies.OperatorOrAbove)]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Reprocess(int id, CancellationToken cancellationToken)
         {
             var exists = await _db.Documents.AnyAsync(d => d.Id == id, cancellationToken);
