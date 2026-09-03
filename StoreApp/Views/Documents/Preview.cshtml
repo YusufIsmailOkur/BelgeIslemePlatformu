@@ -91,182 +91,206 @@
         <div class="alert alert-secondary">Belge henüz işlenmedi.</div>
     }
 
-    @if (content is not null && content.SourceFormat == StoreApp.Models.Enums.DocumentSourceFormat.Pdf)
+    @if (content is not null)
     {
+        var isPdf = content.SourceFormat == StoreApp.Models.Enums.DocumentSourceFormat.Pdf;
+        var extraction = Model.Extraction;
+        var hasExtraction = extraction is not null && (extraction.HeaderFields.Count > 0 || extraction.LineItems.Count > 0);
+
         <div class="row">
             <div class="col-lg-6 mb-4">
                 <h2 class="h5">Orijinal Belge</h2>
-                <iframe src="@Url.Action("File", "Documents", new { id = document.Id })" style="width:100%; height:600px; border:1px solid var(--bs-border-color);"></iframe>
-            </div>
-            <div class="col-lg-6 mb-4">
-                <h2 class="h5">Çıkarılan Metin</h2>
-                @{
-                    var rawText = content.RawText ?? string.Empty;
-                    var truncated = rawText.Length > maxTextLength;
-                    var displayText = truncated ? rawText[..maxTextLength] : rawText;
-                }
-                @if (string.IsNullOrWhiteSpace(rawText))
+                @if (isPdf)
                 {
-                    <p class="text-muted">Metin çıkarılamadı (taranmış PDF olabilir).</p>
+                    <iframe src="@Url.Action("File", "Documents", new { id = document.Id })" style="width:100%; height:600px; border:1px solid var(--bs-border-color);"></iframe>
+                }
+                else if (Model.Tables.Count > 0)
+                {
+                    <div style="max-height:600px; overflow:auto; border:1px solid var(--bs-border-color);" class="p-2">
+                        @foreach (var table in Model.Tables)
+                        {
+                            <h3 class="h6 mt-2">@table.Name</h3>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            @foreach (var header in table.Headers)
+                                            {
+                                                <th>@header</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in table.Rows.Take(maxRows))
+                                        {
+                                            <tr>
+                                                @foreach (var cell in row)
+                                                {
+                                                    <td>@cell</td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                @if (table.Rows.Count > maxRows)
+                                {
+                                    <p class="text-muted small">İlk @maxRows satır gösteriliyor (toplam @table.Rows.Count satır).</p>
+                                }
+                            </div>
+                        }
+                    </div>
                 }
                 else
                 {
-                    <pre style="max-height:600px; overflow:auto; white-space:pre-wrap;">@displayText</pre>
-                    if (truncated)
-                    {
-                        <p class="text-muted small">İlk @maxTextLength karakter gösteriliyor (toplam @rawText.Length karakter).</p>
-                    }
+                    <p class="text-muted">Önizleme yok.</p>
                 }
             </div>
-        </div>
 
-        @if (content.IsOcrProcessed && Model.OcrPageResults.Count > 0)
-        {
-            var avgLength = Model.OcrPageResults.Average(p => p.Text.Length);
-            <div class="row">
-                <div class="col-12 mb-4">
-                    <h2 class="h5">OCR Sayfa Sonuçları</h2>
-                    <p class="text-muted small">
-                        Ortalama güven skoru tek başına yanıltıcı olabilir: bir sayfada yalnızca küçük bir
-                        bölüm (ör. filigran) yüksek güvenle okunup asıl içerik hiç bulunamayabilir. Diğer
-                        sayfalara göre belirgin şekilde az karakter içeren satırlar aşağıda işaretlenir.
-                    </p>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Sayfa</th>
-                                    <th>Karakter Sayısı</th>
-                                    <th>Güven Skoru</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var pageResult in Model.OcrPageResults.OrderBy(p => p.PageNumber))
-                                {
-                                    var isSuspicious = avgLength > 0 && pageResult.Text.Length < avgLength * 0.3;
-                                    <tr class="@(isSuspicious ? "table-warning" : "")">
-                                        <td>@pageResult.PageNumber</td>
-                                        <td>@pageResult.Text.Length</td>
-                                        <td>%@Math.Round(pageResult.Confidence * 100)</td>
-                                        <td>
-                                            @if (isSuspicious)
-                                            {
-                                                <span class="text-warning-emphasis">⚠ Kontrol edilmeli</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        }
-    }
-    else if (Model.Tables.Count > 0)
-    {
-        <h2 class="h5">Tablo Önizleme</h2>
-        @foreach (var table in Model.Tables)
-        {
-            <h3 class="h6 mt-3">@table.Name</h3>
-            <div class="table-responsive mb-3">
-                <table class="table table-sm table-bordered">
-                    <thead>
-                        <tr>
-                            @foreach (var header in table.Headers)
-                            {
-                                <th>@header</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var row in table.Rows.Take(maxRows))
-                        {
-                            <tr>
-                                @foreach (var cell in row)
-                                {
-                                    <td>@cell</td>
-                                }
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-                @if (table.Rows.Count > maxRows)
+            <div class="col-lg-6 mb-4">
+                <h2 class="h5">Çıkarılan Veri</h2>
+                @if (!hasExtraction)
                 {
-                    <p class="text-muted small">İlk @maxRows satır gösteriliyor (toplam @table.Rows.Count satır).</p>
+                    <p class="text-muted">Bu belgeden alan çıkarılamadı.</p>
+                }
+                else
+                {
+                    <p class="text-muted small">
+                        Kural tabanlı eşleştirme ve (kural yetersiz kaldığında) AI destekli çıkarımla üretilmiştir,
+                        kesin doğru kabul edilmemelidir (kullanıcı doğrulama akışı ileride eklenecektir).
+                        <span class="badge text-bg-info">AI</span> etiketli değerler AI tarafından tamamlanmıştır.
+                    </p>
+
+                    @if (extraction!.HeaderFields.Count > 0)
+                    {
+                        <dl class="row small">
+                            @foreach (var field in DocumentFieldSchema.HeaderFields)
+                            {
+                                if (extraction.HeaderFields.TryGetValue(field.Key, out var extracted))
+                                {
+                                    <dt class="col-sm-4">@field.Label</dt>
+                                    <dd class="col-sm-8">
+                                        @extracted.Value
+                                        <span class="text-muted">(%@Math.Round(extracted.Confidence * 100))</span>
+                                        @if (extracted.Source == "AI")
+                                        {
+                                            <span class="badge text-bg-info ms-1">AI</span>
+                                        }
+                                    </dd>
+                                }
+                            }
+                        </dl>
+                    }
+
+                    @if (extraction.LineItems.Count > 0)
+                    {
+                        <div class="table-responsive" style="max-height:400px; overflow:auto;">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        @foreach (var field in DocumentFieldSchema.LineItemFields)
+                                        {
+                                            <th>@field.Label</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var lineItem in extraction.LineItems)
+                                    {
+                                        <tr>
+                                            @foreach (var field in DocumentFieldSchema.LineItemFields)
+                                            {
+                                                <td>
+                                                    @if (lineItem.Fields.TryGetValue(field.Key, out var value))
+                                                    {
+                                                        @value.Value
+                                                        <span class="text-muted">(%@Math.Round(value.Confidence * 100))</span>
+                                                        if (value.Source == "AI")
+                                                        {
+                                                            <span class="badge text-bg-info ms-1">AI</span>
+                                                        }
+                                                    }
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 }
             </div>
-        }
-    }
-
-    @if (Model.Extraction is { } extraction && (extraction.HeaderFields.Count > 0 || extraction.LineItems.Count > 0))
-    {
-        <div class="mt-4">
-            <h2 class="h5">Çıkarılan Alanlar (Kural + AI)</h2>
-            <p class="text-muted small">
-                Kural tabanlı eşleştirme ve (kural yetersiz kaldığında) AI destekli çıkarımla üretilmiştir,
-                kesin doğru kabul edilmemelidir (kullanıcı doğrulama akışı ileride eklenecektir).
-                <span class="badge text-bg-info">AI</span> etiketli değerler AI tarafından tamamlanmıştır.
-            </p>
-
-            @if (extraction.HeaderFields.Count > 0)
-            {
-                <dl class="row small">
-                    @foreach (var field in DocumentFieldSchema.HeaderFields)
-                    {
-                        if (extraction.HeaderFields.TryGetValue(field.Key, out var extracted))
-                        {
-                            <dt class="col-sm-2">@field.Label</dt>
-                            <dd class="col-sm-4">
-                                @extracted.Value
-                                <span class="text-muted">(%@Math.Round(extracted.Confidence * 100))</span>
-                                @if (extracted.Source == "AI")
-                                {
-                                    <span class="badge text-bg-info ms-1">AI</span>
-                                }
-                            </dd>
-                        }
-                    }
-                </dl>
-            }
-
-            @if (extraction.LineItems.Count > 0)
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered">
-                        <thead>
-                            <tr>
-                                @foreach (var field in DocumentFieldSchema.LineItemFields)
-                                {
-                                    <th>@field.Label</th>
-                                }
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var lineItem in extraction.LineItems)
-                            {
-                                <tr>
-                                    @foreach (var field in DocumentFieldSchema.LineItemFields)
-                                    {
-                                        <td>
-                                            @if (lineItem.Fields.TryGetValue(field.Key, out var value))
-                                            {
-                                                @value.Value
-                                                <span class="text-muted">(%@Math.Round(value.Confidence * 100))</span>
-                                                if (value.Source == "AI")
-                                                {
-                                                    <span class="badge text-bg-info ms-1">AI</span>
-                                                }
-                                            }
-                                        </td>
-                                    }
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
         </div>
+
+        @if (isPdf)
+        {
+            <details class="mt-2">
+                <summary class="text-muted small">Ham veri (teknik detay)</summary>
+
+                <div class="row mt-3">
+                    <div class="col-lg-6 mb-4">
+                        <h2 class="h6">Çıkarılan Ham Metin</h2>
+                        @{
+                            var rawText = content.RawText ?? string.Empty;
+                            var truncated = rawText.Length > maxTextLength;
+                            var displayText = truncated ? rawText[..maxTextLength] : rawText;
+                        }
+                        @if (string.IsNullOrWhiteSpace(rawText))
+                        {
+                            <p class="text-muted">Metin çıkarılamadı (taranmış PDF olabilir).</p>
+                        }
+                        else
+                        {
+                            <pre style="max-height:400px; overflow:auto; white-space:pre-wrap;">@displayText</pre>
+                            if (truncated)
+                            {
+                                <p class="text-muted small">İlk @maxTextLength karakter gösteriliyor (toplam @rawText.Length karakter).</p>
+                            }
+                        }
+                    </div>
+
+                    @if (content.IsOcrProcessed && Model.OcrPageResults.Count > 0)
+                    {
+                        var avgLength = Model.OcrPageResults.Average(p => p.Text.Length);
+                        <div class="col-lg-6 mb-4">
+                            <h2 class="h6">OCR Sayfa Sonuçları</h2>
+                            <p class="text-muted small">
+                                Ortalama güven skoru tek başına yanıltıcı olabilir: bir sayfada yalnızca küçük bir
+                                bölüm (ör. filigran) yüksek güvenle okunup asıl içerik hiç bulunamayabilir. Diğer
+                                sayfalara göre belirgin şekilde az karakter içeren satırlar aşağıda işaretlenir.
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Sayfa</th>
+                                            <th>Karakter Sayısı</th>
+                                            <th>Güven Skoru</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var pageResult in Model.OcrPageResults.OrderBy(p => p.PageNumber))
+                                        {
+                                            var isSuspicious = avgLength > 0 && pageResult.Text.Length < avgLength * 0.3;
+                                            <tr class="@(isSuspicious ? "table-warning" : "")">
+                                                <td>@pageResult.PageNumber</td>
+                                                <td>@pageResult.Text.Length</td>
+                                                <td>%@Math.Round(pageResult.Confidence * 100)</td>
+                                                <td>
+                                                    @if (isSuspicious)
+                                                    {
+                                                        <span class="text-warning-emphasis">⚠ Kontrol edilmeli</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </details>
+        }
     }
 </div>
