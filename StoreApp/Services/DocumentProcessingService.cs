@@ -5,6 +5,7 @@ using StoreApp.Data;
 using StoreApp.Models.Entities;
 using StoreApp.Models.Enums;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Extraction;
 
 namespace StoreApp.Services
 {
@@ -18,6 +19,7 @@ namespace StoreApp.Services
         private readonly IOcrService _ocrService;
         private readonly IDocumentTypeClassifier _documentTypeClassifier;
         private readonly IRuleBasedFieldExtractor _ruleBasedFieldExtractor;
+        private readonly IAiFieldExtractor _aiFieldExtractor;
         private readonly TimeSpan _ocrPageTimeout;
 
         public DocumentProcessingService(
@@ -29,6 +31,7 @@ namespace StoreApp.Services
             IOcrService ocrService,
             IDocumentTypeClassifier documentTypeClassifier,
             IRuleBasedFieldExtractor ruleBasedFieldExtractor,
+            IAiFieldExtractor aiFieldExtractor,
             IConfiguration configuration)
         {
             _db = db;
@@ -39,6 +42,7 @@ namespace StoreApp.Services
             _ocrService = ocrService;
             _documentTypeClassifier = documentTypeClassifier;
             _ruleBasedFieldExtractor = ruleBasedFieldExtractor;
+            _aiFieldExtractor = aiFieldExtractor;
             var timeoutSeconds = int.TryParse(configuration["Ocr:TimeoutSeconds"], out var seconds) ? seconds : 30;
             _ocrPageTimeout = TimeSpan.FromSeconds(timeoutSeconds);
         }
@@ -123,6 +127,12 @@ namespace StoreApp.Services
                 contentRecord.DocumentTypeConfidence = suggestion.Confidence;
 
                 var extraction = _ruleBasedFieldExtractor.Extract(parsed.RawText, parsed.Tables);
+                if (HybridFieldMerger.IsWeak(extraction, hasTables: parsed.Tables.Count > 0))
+                {
+                    var aiExtraction = await _aiFieldExtractor.ExtractAsync(parsed.RawText, parsed.Tables, cancellationToken);
+                    extraction = HybridFieldMerger.Merge(extraction, aiExtraction);
+                }
+
                 contentRecord.ExtractedFieldsJson = extraction.HeaderFields.Count > 0 || extraction.LineItems.Count > 0
                     ? JsonSerializer.Serialize(extraction)
                     : null;

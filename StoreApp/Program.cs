@@ -39,6 +39,8 @@ builder.Services.AddSingleton<IPdfPageRenderer, PdfiumPageRenderer>();
 builder.Services.AddSingleton<IOcrService, TesseractOcrService>();
 builder.Services.AddSingleton<IDocumentTypeClassifier, KeywordDocumentTypeClassifier>();
 builder.Services.AddSingleton<IRuleBasedFieldExtractor, RuleBasedFieldExtractor>();
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
+builder.Services.AddHttpClient<IAiFieldExtractor, GeminiFieldExtractor>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 builder.Services.AddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();
 builder.Services.AddHostedService<DocumentProcessingWorker>();

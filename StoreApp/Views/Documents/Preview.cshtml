@@ -203,10 +203,11 @@
     @if (Model.Extraction is { } extraction && (extraction.HeaderFields.Count > 0 || extraction.LineItems.Count > 0))
     {
         <div class="mt-4">
-            <h2 class="h5">Kural Tabanlı Çıkarılan Alanlar</h2>
+            <h2 class="h5">Çıkarılan Alanlar (Kural + AI)</h2>
             <p class="text-muted small">
-                Anahtar kelime/sütun eşleştirmesiyle üretilmiştir, kesin doğru kabul edilmemelidir
-                (kullanıcı doğrulama akışı ileride eklenecektir).
+                Kural tabanlı eşleştirme ve (kural yetersiz kaldığında) AI destekli çıkarımla üretilmiştir,
+                kesin doğru kabul edilmemelidir (kullanıcı doğrulama akışı ileride eklenecektir).
+                <span class="badge text-bg-info">AI</span> etiketli değerler AI tarafından tamamlanmıştır.
             </p>
 
             @if (extraction.HeaderFields.Count > 0)
@@ -217,7 +218,13 @@
                         if (extraction.HeaderFields.TryGetValue(field.Key, out var extracted))
                         {
                             <dt class="col-sm-2">@field.Label</dt>
-                            <dd class="col-sm-4">@extracted.Value</dd>
+                            <dd class="col-sm-4">
+                                @extracted.Value
+                                @if (extracted.Source == "AI")
+                                {
+                                    <span class="badge text-bg-info ms-1">AI</span>
+                                }
+                            </dd>
                         }
                     }
                 </dl>
@@ -241,7 +248,16 @@
                                 <tr>
                                     @foreach (var field in DocumentFieldSchema.LineItemFields)
                                     {
-                                        <td>@(lineItem.Fields.TryGetValue(field.Key, out var value) ? value.Value : "")</td>
+                                        <td>
+                                            @if (lineItem.Fields.TryGetValue(field.Key, out var value))
+                                            {
+                                                @value.Value
+                                                if (value.Source == "AI")
+                                                {
+                                                    <span class="badge text-bg-info ms-1">AI</span>
+                                                }
+                                            }
+                                        </td>
                                     }
                                 </tr>
                             }

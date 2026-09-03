@@ -27,6 +27,7 @@ namespace StoreApp.Tests.Services
             services.AddSingleton<IOcrService, FakeOcrService>();
             services.AddSingleton<IDocumentTypeClassifier, KeywordDocumentTypeClassifier>();
             services.AddSingleton<IRuleBasedFieldExtractor, RuleBasedFieldExtractor>();
+            services.AddSingleton<IAiFieldExtractor>(new FakeAiFieldExtractor());
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
             services.AddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();

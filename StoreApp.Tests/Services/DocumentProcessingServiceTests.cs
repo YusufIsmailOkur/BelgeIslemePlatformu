@@ -62,7 +62,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -91,13 +91,70 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
             var content = await db.DocumentContents.SingleAsync(c => c.DocumentId == document.Id);
             Assert.Equal(DocumentType.Invoice, content.SuggestedDocumentType);
             Assert.True(content.DocumentTypeConfidence > 0);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_WhenRuleExtractionIsWeak_CallsAiExtractorAndMergesResult()
+        {
+            using var db = CreateDb();
+            var document = CreateDocument(db);
+
+            // Bilinen hiçbir etiketle eşleşmeyen serbest metin: kural çıkarımı belge no bulamaz (zayıf).
+            var parser = new FakeDocumentContentParser(
+                canParse: true,
+                result: new ParsedDocumentContent(
+                    DocumentSourceFormat.Pdf, "Bu belgede tanınan bir etiket yok.", Array.Empty<ParsedTable>(),
+                    1, null, null, null, null));
+
+            var aiResult = new ExtractionResult(
+                new Dictionary<string, ExtractedField> { ["document_number"] = new("document_number", "AI-BULDU", 0.6, "AI") },
+                new List<ExtractedLineItem>());
+            var aiExtractor = new FakeAiFieldExtractor(aiResult);
+
+            var service = new DocumentProcessingService(
+                db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(),
+                new RuleBasedFieldExtractor(), aiExtractor, CreateConfiguration());
+
+            await service.ProcessAsync(document.Id);
+
+            Assert.True(aiExtractor.WasCalled);
+
+            var content = await db.DocumentContents.SingleAsync(c => c.DocumentId == document.Id);
+            var extraction = JsonSerializer.Deserialize<ExtractionResult>(content.ExtractedFieldsJson!);
+            Assert.Equal("AI-BULDU", extraction!.HeaderFields["document_number"].Value);
+            Assert.Equal("AI", extraction.HeaderFields["document_number"].Source);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_WhenRuleExtractionIsStrong_DoesNotCallAiExtractor()
+        {
+            using var db = CreateDb();
+            var document = CreateDocument(db);
+
+            var parser = new FakeDocumentContentParser(
+                canParse: true,
+                result: new ParsedDocumentContent(
+                    DocumentSourceFormat.Pdf, "Belge No: 2026-001", Array.Empty<ParsedTable>(),
+                    1, null, null, null, null));
+
+            var aiExtractor = new FakeAiFieldExtractor();
+
+            var service = new DocumentProcessingService(
+                db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(),
+                new RuleBasedFieldExtractor(), aiExtractor, CreateConfiguration());
+
+            await service.ProcessAsync(document.Id);
+
+            Assert.False(aiExtractor.WasCalled);
         }
 
         [Fact]
@@ -110,7 +167,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -127,7 +184,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), Array.Empty<IDocumentContentParser>(),
-                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -156,7 +213,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser }, renderer, ocrService,
-                new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -191,7 +248,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), ocrService, new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new FakePdfPageRenderer(), ocrService, new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -218,7 +275,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser }, renderer, ocrService,
-                new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration());
+                new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -242,7 +299,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser }, renderer, ocrService,
-                new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), CreateConfiguration(ocrTimeoutSeconds: 0));
+                new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(), new FakeAiFieldExtractor(), CreateConfiguration(ocrTimeoutSeconds: 0));
 
             await service.ProcessAsync(document.Id);
 
