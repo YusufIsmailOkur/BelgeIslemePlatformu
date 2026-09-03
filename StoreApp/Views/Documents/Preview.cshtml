@@ -1,4 +1,5 @@
 @model StoreApp.ViewModels.DocumentPreviewViewModel
+@using StoreApp.Models.Fields
 @using StoreApp.Services.Abstractions
 @{
     ViewData["Title"] = "Belge Önizleme";
@@ -197,5 +198,57 @@
                 }
             </div>
         }
+    }
+
+    @if (Model.Extraction is { } extraction && (extraction.HeaderFields.Count > 0 || extraction.LineItems.Count > 0))
+    {
+        <div class="mt-4">
+            <h2 class="h5">Kural Tabanlı Çıkarılan Alanlar</h2>
+            <p class="text-muted small">
+                Anahtar kelime/sütun eşleştirmesiyle üretilmiştir, kesin doğru kabul edilmemelidir
+                (kullanıcı doğrulama akışı ileride eklenecektir).
+            </p>
+
+            @if (extraction.HeaderFields.Count > 0)
+            {
+                <dl class="row small">
+                    @foreach (var field in DocumentFieldSchema.HeaderFields)
+                    {
+                        if (extraction.HeaderFields.TryGetValue(field.Key, out var extracted))
+                        {
+                            <dt class="col-sm-2">@field.Label</dt>
+                            <dd class="col-sm-4">@extracted.Value</dd>
+                        }
+                    }
+                </dl>
+            }
+
+            @if (extraction.LineItems.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                @foreach (var field in DocumentFieldSchema.LineItemFields)
+                                {
+                                    <th>@field.Label</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lineItem in extraction.LineItems)
+                            {
+                                <tr>
+                                    @foreach (var field in DocumentFieldSchema.LineItemFields)
+                                    {
+                                        <td>@(lineItem.Fields.TryGetValue(field.Key, out var value) ? value.Value : "")</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
     }
 </div>

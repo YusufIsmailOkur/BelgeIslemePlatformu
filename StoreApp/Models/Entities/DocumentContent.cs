@@ -35,5 +35,9 @@ namespace StoreApp.Models.Entities
         // Document.DocumentType'ı geçersiz kılmaz; kullanıcıya öneri olarak gösterilir (bkz. Föy 06).
         public DocumentType? SuggestedDocumentType { get; set; }
         public double? DocumentTypeConfidence { get; set; }
+
+        // ExtractionResult'ın JSON serileştirmesi (bkz. Services/Abstractions/IRuleBasedFieldExtractor.cs).
+        // Kesin doğru kabul edilmez; kullanıcı doğrulaması Föy 07'nin kapsamındadır.
+        public string? ExtractedFieldsJson { get; set; }
     }
 }

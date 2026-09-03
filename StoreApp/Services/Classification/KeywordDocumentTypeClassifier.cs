@@ -1,5 +1,6 @@
 using StoreApp.Models.Enums;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Text;
 
 namespace StoreApp.Services.Classification
 {
@@ -26,7 +27,7 @@ namespace StoreApp.Services.Classification
         public DocumentTypeSuggestion Classify(string? rawText, IReadOnlyList<ParsedTable> tables)
         {
             var tableText = string.Join(' ', tables.SelectMany(t => t.Headers.Concat(t.Rows.SelectMany(row => row))));
-            var combined = Normalize(string.Join(' ', rawText ?? string.Empty, tableText));
+            var combined = TurkishTextNormalizer.Normalize(string.Join(' ', rawText ?? string.Empty, tableText));
 
             if (string.IsNullOrWhiteSpace(combined))
             {
@@ -49,9 +50,5 @@ namespace StoreApp.Services.Classification
             var confidence = Math.Min(1d, bestMatchCount * ConfidencePerMatch);
             return new DocumentTypeSuggestion(best, confidence);
         }
-
-        // Türkçe büyük/küçük harf dönüşümündeki 'İ'/'I' tuzağını (ToLowerInvariant'ın 'İ'yi
-        // birleşik noktalı 'i'ye çevirmesi) basitçe aşmak için ASCII 'i'ye normalize edilir.
-        private static string Normalize(string text) => text.Replace('İ', 'i').Replace('I', 'i').ToLowerInvariant();
     }
 }

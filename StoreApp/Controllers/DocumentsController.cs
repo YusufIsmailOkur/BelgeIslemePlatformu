@@ -131,7 +131,11 @@ namespace StoreApp.Controllers
                 ? JsonSerializer.Deserialize<List<OcrPageResult>>(pageResultsJson) ?? new List<OcrPageResult>()
                 : new List<OcrPageResult>();
 
-            return View(new DocumentPreviewViewModel { Document = document, Tables = tables, OcrPageResults = ocrPageResults });
+            var extraction = document.Content?.ExtractedFieldsJson is { } extractedFieldsJson
+                ? JsonSerializer.Deserialize<ExtractionResult>(extractedFieldsJson)
+                : null;
+
+            return View(new DocumentPreviewViewModel { Document = document, Tables = tables, OcrPageResults = ocrPageResults, Extraction = extraction });
         }
 
         [HttpPost]
