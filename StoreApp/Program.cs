@@ -5,6 +5,7 @@ using StoreApp.Authorization;
 using StoreApp.Data;
 using StoreApp.Services;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Classification;
 using StoreApp.Services.Ocr;
 using StoreApp.Services.Parsing;
 
@@ -35,6 +36,7 @@ builder.Services.AddSingleton<IDocumentContentParser, ExcelDocumentParser>();
 builder.Services.AddSingleton<IDocumentContentParser, CsvDocumentParser>();
 builder.Services.AddSingleton<IPdfPageRenderer, PdfiumPageRenderer>();
 builder.Services.AddSingleton<IOcrService, TesseractOcrService>();
+builder.Services.AddSingleton<IDocumentTypeClassifier, KeywordDocumentTypeClassifier>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 builder.Services.AddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();
 builder.Services.AddHostedService<DocumentProcessingWorker>();

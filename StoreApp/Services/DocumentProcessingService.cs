@@ -16,6 +16,7 @@ namespace StoreApp.Services
         private readonly IEnumerable<IDocumentContentParser> _parsers;
         private readonly IPdfPageRenderer _pdfPageRenderer;
         private readonly IOcrService _ocrService;
+        private readonly IDocumentTypeClassifier _documentTypeClassifier;
         private readonly TimeSpan _ocrPageTimeout;
 
         public DocumentProcessingService(
@@ -25,6 +26,7 @@ namespace StoreApp.Services
             IEnumerable<IDocumentContentParser> parsers,
             IPdfPageRenderer pdfPageRenderer,
             IOcrService ocrService,
+            IDocumentTypeClassifier documentTypeClassifier,
             IConfiguration configuration)
         {
             _db = db;
@@ -33,6 +35,7 @@ namespace StoreApp.Services
             _parsers = parsers;
             _pdfPageRenderer = pdfPageRenderer;
             _ocrService = ocrService;
+            _documentTypeClassifier = documentTypeClassifier;
             var timeoutSeconds = int.TryParse(configuration["Ocr:TimeoutSeconds"], out var seconds) ? seconds : 30;
             _ocrPageTimeout = TimeSpan.FromSeconds(timeoutSeconds);
         }
@@ -111,6 +114,10 @@ namespace StoreApp.Services
                 contentRecord.IsOcrProcessed = isOcrProcessed;
                 contentRecord.OcrConfidence = ocrConfidence;
                 contentRecord.PageResultsJson = pageResultsJson;
+
+                var suggestion = _documentTypeClassifier.Classify(parsed.RawText, parsed.Tables);
+                contentRecord.SuggestedDocumentType = suggestion.Type;
+                contentRecord.DocumentTypeConfidence = suggestion.Confidence;
 
                 document.Status = DocumentStatus.WaitingValidation;
                 document.ProcessingError = null;

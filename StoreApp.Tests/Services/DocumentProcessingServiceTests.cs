@@ -6,6 +6,7 @@ using StoreApp.Models.Entities;
 using StoreApp.Models.Enums;
 using StoreApp.Services;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Classification;
 using StoreApp.Tests.Fakes;
 
 namespace StoreApp.Tests.Services
@@ -60,7 +61,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), new FakeOcrService(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -76,6 +77,29 @@ namespace StoreApp.Tests.Services
         }
 
         [Fact]
+        public async Task ProcessAsync_StoresDocumentTypeSuggestion_FromParsedContent()
+        {
+            using var db = CreateDb();
+            var document = CreateDocument(db);
+
+            var parser = new FakeDocumentContentParser(
+                canParse: true,
+                result: new ParsedDocumentContent(
+                    DocumentSourceFormat.Pdf, "Fatura No: 2026-001\nKDV Oranı: %20", Array.Empty<ParsedTable>(),
+                    1, null, null, null, null));
+
+            var service = new DocumentProcessingService(
+                db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), CreateConfiguration());
+
+            await service.ProcessAsync(document.Id);
+
+            var content = await db.DocumentContents.SingleAsync(c => c.DocumentId == document.Id);
+            Assert.Equal(DocumentType.Invoice, content.SuggestedDocumentType);
+            Assert.True(content.DocumentTypeConfidence > 0);
+        }
+
+        [Fact]
         public async Task ProcessAsync_WhenParserThrows_TransitionsToFailedRetryWithError()
         {
             using var db = CreateDb();
@@ -85,7 +109,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), new FakeOcrService(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -102,7 +126,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), Array.Empty<IDocumentContentParser>(),
-                new FakePdfPageRenderer(), new FakeOcrService(), CreateConfiguration());
+                new FakePdfPageRenderer(), new FakeOcrService(), new KeywordDocumentTypeClassifier(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -131,7 +155,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser }, renderer, ocrService,
-                CreateConfiguration());
+                new KeywordDocumentTypeClassifier(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -166,7 +190,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
-                new FakePdfPageRenderer(), ocrService, CreateConfiguration());
+                new FakePdfPageRenderer(), ocrService, new KeywordDocumentTypeClassifier(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -193,7 +217,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser }, renderer, ocrService,
-                CreateConfiguration());
+                new KeywordDocumentTypeClassifier(), CreateConfiguration());
 
             await service.ProcessAsync(document.Id);
 
@@ -217,7 +241,7 @@ namespace StoreApp.Tests.Services
 
             var service = new DocumentProcessingService(
                 db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser }, renderer, ocrService,
-                CreateConfiguration(ocrTimeoutSeconds: 0));
+                new KeywordDocumentTypeClassifier(), CreateConfiguration(ocrTimeoutSeconds: 0));
 
             await service.ProcessAsync(document.Id);
 

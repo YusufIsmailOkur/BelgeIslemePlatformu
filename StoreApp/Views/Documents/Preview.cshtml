@@ -16,6 +16,12 @@
             <h1 class="h3 mb-1">@document.OriginalFileName</h1>
             <span class="badge @document.Status.ToBadgeClass()">@document.Status.ToDisplayName()</span>
             <span class="text-muted ms-2">@document.DocumentType.ToDisplayName()</span>
+            @if (content?.SuggestedDocumentType is { } suggestedType && content.SuggestedDocumentType != document.DocumentType && content.DocumentTypeConfidence > 0)
+            {
+                <span class="text-muted ms-2 small">
+                    (Önerilen tür: @suggestedType.ToDisplayName(), %@Math.Round(content.DocumentTypeConfidence!.Value * 100))
+                </span>
+            }
         </div>
         <div>
             @if (canReprocess)

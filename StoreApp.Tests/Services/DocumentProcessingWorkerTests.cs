@@ -6,6 +6,7 @@ using StoreApp.Models.Entities;
 using StoreApp.Models.Enums;
 using StoreApp.Services;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Classification;
 using StoreApp.Tests.Fakes;
 
 namespace StoreApp.Tests.Services
@@ -23,6 +24,7 @@ namespace StoreApp.Tests.Services
                 result: new ParsedDocumentContent(DocumentSourceFormat.Csv, "metin", Array.Empty<ParsedTable>(), null, null, null, null, null)));
             services.AddSingleton<IPdfPageRenderer>(new FakePdfPageRenderer());
             services.AddSingleton<IOcrService, FakeOcrService>();
+            services.AddSingleton<IDocumentTypeClassifier, KeywordDocumentTypeClassifier>();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
             services.AddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();

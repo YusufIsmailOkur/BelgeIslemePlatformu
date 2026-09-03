@@ -30,5 +30,10 @@ namespace StoreApp.Models.Entities
         // (ör. bir sayfada sadece filigran metni yüksek güvenle okunup asıl içerik hiç bulunamayabilir),
         // sayfa bazlı kırılım burada saklanır.
         public string? PageResultsJson { get; set; }
+
+        // Anahtar kelime tabanlı otomatik tahmin (bkz. Services/Classification/KeywordDocumentTypeClassifier).
+        // Document.DocumentType'ı geçersiz kılmaz; kullanıcıya öneri olarak gösterilir (bkz. Föy 06).
+        public DocumentType? SuggestedDocumentType { get; set; }
+        public double? DocumentTypeConfidence { get; set; }
     }
 }
