@@ -20,5 +20,15 @@ namespace StoreApp.Models.Entities
         public string? Delimiter { get; set; }
         public long ParseDurationMs { get; set; }
         public DateTime ParsedAt { get; set; }
+
+        // RawText doğrudan çıkarım yerine OCR'dan geldiyse true olur (bkz. Services/DocumentProcessingService).
+        public bool IsOcrProcessed { get; set; }
+        public double? OcrConfidence { get; set; }
+
+        // OcrPageResult listesinin JSON serileştirmesi (bkz. Services/Abstractions/IOcrService.cs).
+        // Tek bir ortalama güven skoru hangi sayfaların aslında boş/başarısız kaldığını gizleyebildiğinden
+        // (ör. bir sayfada sadece filigran metni yüksek güvenle okunup asıl içerik hiç bulunamayabilir),
+        // sayfa bazlı kırılım burada saklanır.
+        public string? PageResultsJson { get; set; }
     }
 }

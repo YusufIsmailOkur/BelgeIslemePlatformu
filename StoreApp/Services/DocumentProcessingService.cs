@@ -14,17 +14,27 @@ namespace StoreApp.Services
         private readonly IFileStorageService _fileStorageService;
         private readonly IAuditLogService _auditLogService;
         private readonly IEnumerable<IDocumentContentParser> _parsers;
+        private readonly IPdfPageRenderer _pdfPageRenderer;
+        private readonly IOcrService _ocrService;
+        private readonly TimeSpan _ocrPageTimeout;
 
         public DocumentProcessingService(
             AppDbContext db,
             IFileStorageService fileStorageService,
             IAuditLogService auditLogService,
-            IEnumerable<IDocumentContentParser> parsers)
+            IEnumerable<IDocumentContentParser> parsers,
+            IPdfPageRenderer pdfPageRenderer,
+            IOcrService ocrService,
+            IConfiguration configuration)
         {
             _db = db;
             _fileStorageService = fileStorageService;
             _auditLogService = auditLogService;
             _parsers = parsers;
+            _pdfPageRenderer = pdfPageRenderer;
+            _ocrService = ocrService;
+            var timeoutSeconds = int.TryParse(configuration["Ocr:TimeoutSeconds"], out var seconds) ? seconds : 30;
+            _ocrPageTimeout = TimeSpan.FromSeconds(timeoutSeconds);
         }
 
         public async Task ProcessAsync(int documentId, CancellationToken cancellationToken = default)
@@ -54,6 +64,29 @@ namespace StoreApp.Services
                 buffer.Position = 0;
 
                 var parsed = await parser.ParseAsync(buffer, cancellationToken);
+
+                var isOcrProcessed = false;
+                double? ocrConfidence = null;
+                string? pageResultsJson = null;
+
+                // PDF'den metin çıkmıyorsa taranmış kabul edilir ve OCR'a yönlendirilir (bkz. Föy 05).
+                if (parsed.SourceFormat == DocumentSourceFormat.Pdf && string.IsNullOrWhiteSpace(parsed.RawText))
+                {
+                    buffer.Position = 0;
+                    var pageResults = new List<OcrPageResult>();
+                    await foreach (var page in _pdfPageRenderer.RenderPagesAsync(buffer, cancellationToken))
+                    {
+                        pageResults.Add(await RecognizePageWithTimeoutAsync(page, cancellationToken));
+                    }
+
+                    parsed = parsed with { RawText = string.Join("\n", pageResults.Select(p => p.Text)) };
+                    isOcrProcessed = true;
+                    ocrConfidence = pageResults.Count > 0 ? pageResults.Average(p => p.Confidence) : 0d;
+                    // Ortalama güven skoru, sadece küçük bir bölümü (ör. filigran) okunup asıl içeriği hiç
+                    // bulunamayan sayfaları gizleyebilir; sayfa bazlı kırılım bu yüzden ayrıca saklanır.
+                    pageResultsJson = JsonSerializer.Serialize(pageResults);
+                }
+
                 stopwatch.Stop();
 
                 var contentRecord = await _db.DocumentContents
@@ -75,6 +108,9 @@ namespace StoreApp.Services
                 contentRecord.Delimiter = parsed.Delimiter;
                 contentRecord.ParseDurationMs = stopwatch.ElapsedMilliseconds;
                 contentRecord.ParsedAt = DateTime.UtcNow;
+                contentRecord.IsOcrProcessed = isOcrProcessed;
+                contentRecord.OcrConfidence = ocrConfidence;
+                contentRecord.PageResultsJson = pageResultsJson;
 
                 document.Status = DocumentStatus.WaitingValidation;
                 document.ProcessingError = null;
@@ -82,12 +118,28 @@ namespace StoreApp.Services
 
                 await _db.SaveChangesAsync(cancellationToken);
                 await _auditLogService.LogAsync(
-                    "Document", document.Id, "ParseSucceeded",
+                    "Document", document.Id, isOcrProcessed ? "ParseSucceededViaOcr" : "ParseSucceeded",
+                    newValue: isOcrProcessed ? new { ocrConfidence } : null,
                     changedBy: document.UploadedByUserId, cancellationToken: cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 await FailAsync(document, ex.Message, cancellationToken);
+            }
+        }
+
+        private async Task<OcrPageResult> RecognizePageWithTimeoutAsync(PdfPageImage page, CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(_ocrPageTimeout);
+
+            try
+            {
+                return await _ocrService.RecognizeAsync(page, timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException($"OCR zaman aşımına uğradı (sayfa {page.PageNumber}).");
             }
         }
 

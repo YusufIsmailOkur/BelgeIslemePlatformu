@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StoreApp.Data;
 
@@ -10,9 +11,11 @@ using StoreApp.Data;
 namespace StoreApp.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903010345_AddDocumentContentOcrFields")]
+    partial class AddDocumentContentOcrFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -131,9 +134,6 @@ namespace StoreApp.Data.Migrations
 
                     b.Property<int?>("PageCount")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("PageResultsJson")
-                        .HasColumnType("TEXT");
 
                     b.Property<long>("ParseDurationMs")
                         .HasColumnType("INTEGER");

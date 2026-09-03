@@ -112,6 +112,50 @@
                 }
             </div>
         </div>
+
+        @if (content.IsOcrProcessed && Model.OcrPageResults.Count > 0)
+        {
+            var avgLength = Model.OcrPageResults.Average(p => p.Text.Length);
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <h2 class="h5">OCR Sayfa Sonuçları</h2>
+                    <p class="text-muted small">
+                        Ortalama güven skoru tek başına yanıltıcı olabilir: bir sayfada yalnızca küçük bir
+                        bölüm (ör. filigran) yüksek güvenle okunup asıl içerik hiç bulunamayabilir. Diğer
+                        sayfalara göre belirgin şekilde az karakter içeren satırlar aşağıda işaretlenir.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Sayfa</th>
+                                    <th>Karakter Sayısı</th>
+                                    <th>Güven Skoru</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pageResult in Model.OcrPageResults.OrderBy(p => p.PageNumber))
+                                {
+                                    var isSuspicious = avgLength > 0 && pageResult.Text.Length < avgLength * 0.3;
+                                    <tr class="@(isSuspicious ? "table-warning" : "")">
+                                        <td>@pageResult.PageNumber</td>
+                                        <td>@pageResult.Text.Length</td>
+                                        <td>%@Math.Round(pageResult.Confidence * 100)</td>
+                                        <td>
+                                            @if (isSuspicious)
+                                            {
+                                                <span class="text-warning-emphasis">⚠ Kontrol edilmeli</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
     }
     else if (Model.Tables.Count > 0)
     {

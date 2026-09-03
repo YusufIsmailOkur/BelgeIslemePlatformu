@@ -5,6 +5,7 @@ using StoreApp.Authorization;
 using StoreApp.Data;
 using StoreApp.Services;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Ocr;
 using StoreApp.Services.Parsing;
 
 // Windows-1254 gibi eski kod sayfalarını (BOM'suz Türkçe CSV tespiti için) kullanılabilir kılar.
@@ -28,7 +29,11 @@ builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
 builder.Services.AddSingleton<IDocumentContentParser, PdfDocumentParser>();
 builder.Services.AddSingleton<IDocumentContentParser, ExcelDocumentParser>();
 builder.Services.AddSingleton<IDocumentContentParser, CsvDocumentParser>();
+builder.Services.AddSingleton<IPdfPageRenderer, PdfiumPageRenderer>();
+builder.Services.AddSingleton<IOcrService, TesseractOcrService>();
 builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
+builder.Services.AddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();
+builder.Services.AddHostedService<DocumentProcessingWorker>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

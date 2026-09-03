@@ -19,20 +19,20 @@ namespace StoreApp.Controllers
         private readonly IFileValidationService _fileValidationService;
         private readonly IFileStorageService _fileStorageService;
         private readonly IAuditLogService _auditLogService;
-        private readonly IDocumentProcessingService _documentProcessingService;
+        private readonly IDocumentProcessingQueue _documentProcessingQueue;
 
         public DocumentsController(
             AppDbContext db,
             IFileValidationService fileValidationService,
             IFileStorageService fileStorageService,
             IAuditLogService auditLogService,
-            IDocumentProcessingService documentProcessingService)
+            IDocumentProcessingQueue documentProcessingQueue)
         {
             _db = db;
             _fileValidationService = fileValidationService;
             _fileStorageService = fileStorageService;
             _auditLogService = auditLogService;
-            _documentProcessingService = documentProcessingService;
+            _documentProcessingQueue = documentProcessingQueue;
         }
 
         [HttpGet]
@@ -91,7 +91,7 @@ namespace StoreApp.Controllers
                 await _db.SaveChangesAsync(cancellationToken);
                 await _auditLogService.LogAsync("Document", document.Id, "Upload", changedBy: userId, cancellationToken: cancellationToken);
 
-                await _documentProcessingService.ProcessAsync(document.Id, cancellationToken);
+                _documentProcessingQueue.QueueDocumentProcessing(document.Id);
 
                 results.Add(new DocumentUploadResult(
                     file.FileName,
@@ -122,7 +122,11 @@ namespace StoreApp.Controllers
                 ? JsonSerializer.Deserialize<List<ParsedTable>>(tablesJson) ?? new List<ParsedTable>()
                 : new List<ParsedTable>();
 
-            return View(new DocumentPreviewViewModel { Document = document, Tables = tables });
+            var ocrPageResults = document.Content?.PageResultsJson is { } pageResultsJson
+                ? JsonSerializer.Deserialize<List<OcrPageResult>>(pageResultsJson) ?? new List<OcrPageResult>()
+                : new List<OcrPageResult>();
+
+            return View(new DocumentPreviewViewModel { Document = document, Tables = tables, OcrPageResults = ocrPageResults });
         }
 
         [HttpPost]
@@ -136,7 +140,7 @@ namespace StoreApp.Controllers
                 return NotFound();
             }
 
-            await _documentProcessingService.ProcessAsync(id, cancellationToken);
+            _documentProcessingQueue.QueueDocumentProcessing(id);
             return RedirectToAction(nameof(Preview), new { id });
         }
 
