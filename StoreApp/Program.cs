@@ -1,9 +1,14 @@
+using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using StoreApp.Authorization;
 using StoreApp.Data;
 using StoreApp.Services;
 using StoreApp.Services.Abstractions;
+using StoreApp.Services.Parsing;
+
+// Windows-1254 gibi eski kod sayfalarını (BOM'suz Türkçe CSV tespiti için) kullanılabilir kılar.
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +25,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddSingleton<IFileValidationService, FileValidationService>();
 builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
+builder.Services.AddSingleton<IDocumentContentParser, PdfDocumentParser>();
+builder.Services.AddSingleton<IDocumentContentParser, ExcelDocumentParser>();
+builder.Services.AddSingleton<IDocumentContentParser, CsvDocumentParser>();
+builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

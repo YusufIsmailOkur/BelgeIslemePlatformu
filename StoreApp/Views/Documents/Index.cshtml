@@ -1,12 +1,13 @@
 @model List<Document>
 @{
     ViewData["Title"] = "Belgeler";
+    var canProcess = User.IsInRole(nameof(RoleCode.Operator)) || User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin));
 }
 
 <div class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">Belgeler</h1>
-        @if (User.IsInRole(nameof(RoleCode.Operator)) || User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin)))
+        @if (canProcess)
         {
             <a class="btn btn-primary" asp-controller="Documents" asp-action="Upload">Belge Yükle</a>
         }
@@ -27,6 +28,7 @@
                         <th>Durum</th>
                         <th>Yükleme Tarihi</th>
                         <th>Yükleyen</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,9 +37,24 @@
                         <tr>
                             <td>@document.OriginalFileName</td>
                             <td>@document.DocumentType.ToDisplayName()</td>
-                            <td><span class="badge @document.Status.ToBadgeClass()">@document.Status.ToDisplayName()</span></td>
+                            <td>
+                                <span class="badge @document.Status.ToBadgeClass()"
+                                      title="@(document.Status == DocumentStatus.FailedRetry ? document.ProcessingError : null)">
+                                    @document.Status.ToDisplayName()
+                                </span>
+                            </td>
                             <td>@document.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
                             <td>@document.UploadedByUser.FullName</td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-secondary" asp-controller="Documents" asp-action="Preview" asp-route-id="@document.Id">İncele</a>
+                                @if (canProcess && (document.Status == DocumentStatus.Uploaded || document.Status == DocumentStatus.FailedRetry))
+                                {
+                                    <form asp-controller="Documents" asp-action="Reprocess" asp-route-id="@document.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">Yeniden İşle</button>
+                                    </form>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

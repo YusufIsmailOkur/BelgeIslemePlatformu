@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,17 +19,20 @@ namespace StoreApp.Controllers
         private readonly IFileValidationService _fileValidationService;
         private readonly IFileStorageService _fileStorageService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDocumentProcessingService _documentProcessingService;
 
         public DocumentsController(
             AppDbContext db,
             IFileValidationService fileValidationService,
             IFileStorageService fileStorageService,
-            IAuditLogService auditLogService)
+            IAuditLogService auditLogService,
+            IDocumentProcessingService documentProcessingService)
         {
             _db = db;
             _fileValidationService = fileValidationService;
             _fileStorageService = fileStorageService;
             _auditLogService = auditLogService;
+            _documentProcessingService = documentProcessingService;
         }
 
         [HttpGet]
@@ -87,10 +91,72 @@ namespace StoreApp.Controllers
                 await _db.SaveChangesAsync(cancellationToken);
                 await _auditLogService.LogAsync("Document", document.Id, "Upload", changedBy: userId, cancellationToken: cancellationToken);
 
-                results.Add(new DocumentUploadResult(file.FileName, true, null));
+                await _documentProcessingService.ProcessAsync(document.Id, cancellationToken);
+
+                results.Add(new DocumentUploadResult(
+                    file.FileName,
+                    true,
+                    null,
+                    document.Id,
+                    document.Status.ToDisplayName(),
+                    document.Status.ToBadgeClass()));
             }
 
             return Json(results);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Preview(int id, CancellationToken cancellationToken)
+        {
+            var document = await _db.Documents
+                .Include(d => d.UploadedByUser)
+                .Include(d => d.Content)
+                .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
+            if (document is null)
+            {
+                return NotFound();
+            }
+
+            var tables = document.Content?.RawTablesJson is { } tablesJson
+                ? JsonSerializer.Deserialize<List<ParsedTable>>(tablesJson) ?? new List<ParsedTable>()
+                : new List<ParsedTable>();
+
+            return View(new DocumentPreviewViewModel { Document = document, Tables = tables });
+        }
+
+        [HttpPost]
+        [Authorize(Policy = Policies.OperatorOrAbove)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Reprocess(int id, CancellationToken cancellationToken)
+        {
+            var exists = await _db.Documents.AnyAsync(d => d.Id == id, cancellationToken);
+            if (!exists)
+            {
+                return NotFound();
+            }
+
+            await _documentProcessingService.ProcessAsync(id, cancellationToken);
+            return RedirectToAction(nameof(Preview), new { id });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> File(int id, bool download, CancellationToken cancellationToken)
+        {
+            var document = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+            if (document is null)
+            {
+                return NotFound();
+            }
+
+            var stream = _fileStorageService.OpenRead(document.StoragePath);
+
+            // download=false (varsayılan): Content-Disposition gönderilmez, tarayıcı belgeyi
+            // (ör. Preview sayfasındaki iframe) satır içi gösterebilir. download=true isteyen
+            // kullanıcı için dosya adıyla birlikte "attachment" olarak indirilir.
+            return download
+                ? File(stream, document.MimeType, document.OriginalFileName, enableRangeProcessing: true)
+                : File(stream, document.MimeType, enableRangeProcessing: true);
         }
     }
 }

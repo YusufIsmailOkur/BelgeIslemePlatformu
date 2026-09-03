@@ -15,6 +15,7 @@ namespace StoreApp.Data
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Document> Documents => Set<Document>();
+        public DbSet<DocumentContent> DocumentContents => Set<DocumentContent>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -51,6 +52,17 @@ namespace StoreApp.Data
                     .OnDelete(DeleteBehavior.Restrict);
                 // Soft delete: silinen belgeler varsayılan sorgulardan otomatik hariç tutulur.
                 entity.HasQueryFilter(d => d.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<DocumentContent>(entity =>
+            {
+                entity.HasIndex(c => c.DocumentId).IsUnique();
+                entity.HasOne(c => c.Document)
+                    .WithOne(d => d.Content)
+                    .HasForeignKey<DocumentContent>(c => c.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                // Document ile aynı soft-delete filtresi: silinen belgenin içeriği de gizlenir.
+                entity.HasQueryFilter(c => c.Document.DeletedAt == null);
             });
         }
 

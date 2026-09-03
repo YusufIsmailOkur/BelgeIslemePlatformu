@@ -1,0 +1,151 @@
+@model StoreApp.ViewModels.DocumentPreviewViewModel
+@using StoreApp.Services.Abstractions
+@{
+    ViewData["Title"] = "Belge Önizleme";
+    var document = Model.Document;
+    var content = document.Content;
+    const int maxRows = 50;
+    const int maxTextLength = 5000;
+    var canProcess = User.IsInRole(nameof(RoleCode.Operator)) || User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin));
+    var canReprocess = canProcess && (document.Status == DocumentStatus.Uploaded || document.Status == DocumentStatus.FailedRetry);
+}
+
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">@document.OriginalFileName</h1>
+            <span class="badge @document.Status.ToBadgeClass()">@document.Status.ToDisplayName()</span>
+            <span class="text-muted ms-2">@document.DocumentType.ToDisplayName()</span>
+        </div>
+        <div>
+            @if (canReprocess)
+            {
+                <form asp-controller="Documents" asp-action="Reprocess" asp-route-id="@document.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-warning">Yeniden İşle</button>
+                </form>
+            }
+            <a class="btn btn-outline-primary" asp-controller="Documents" asp-action="File" asp-route-id="@document.Id" asp-route-download="true">
+                <i class="fa-solid fa-download"></i> İndir
+            </a>
+            <a class="btn btn-outline-secondary" asp-controller="Documents" asp-action="Index">Belgelere Dön</a>
+        </div>
+    </div>
+
+    <dl class="row small text-muted mb-4">
+        <dt class="col-sm-2">Yükleyen</dt>
+        <dd class="col-sm-4">@document.UploadedByUser.FullName</dd>
+        <dt class="col-sm-2">Yükleme Tarihi</dt>
+        <dd class="col-sm-4">@document.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+
+        @if (content is not null)
+        {
+            <dt class="col-sm-2">Kaynak Format</dt>
+            <dd class="col-sm-4">@content.SourceFormat.ToDisplayName()</dd>
+            <dt class="col-sm-2">İşlem Süresi</dt>
+            <dd class="col-sm-4">@content.ParseDurationMs ms</dd>
+
+            @if (content.PageCount is not null)
+            {
+                <dt class="col-sm-2">Sayfa Sayısı</dt>
+                <dd class="col-sm-4">@content.PageCount</dd>
+            }
+            @if (content.SheetCount is not null)
+            {
+                <dt class="col-sm-2">Sayfa (Sheet) Sayısı</dt>
+                <dd class="col-sm-4">@content.SheetCount</dd>
+            }
+            @if (content.RowCount is not null)
+            {
+                <dt class="col-sm-2">Satır Sayısı</dt>
+                <dd class="col-sm-4">@content.RowCount</dd>
+            }
+            @if (content.Encoding is not null)
+            {
+                <dt class="col-sm-2">Encoding</dt>
+                <dd class="col-sm-4">@content.Encoding</dd>
+            }
+            @if (content.Delimiter is not null)
+            {
+                <dt class="col-sm-2">Ayraç</dt>
+                <dd class="col-sm-4"><code>@content.Delimiter</code></dd>
+            }
+        }
+    </dl>
+
+    @if (document.Status == StoreApp.Models.Enums.DocumentStatus.FailedRetry && document.ProcessingError is not null)
+    {
+        <div class="alert alert-danger">
+            <strong>İşleme hatası:</strong> @document.ProcessingError
+        </div>
+    }
+    else if (content is null)
+    {
+        <div class="alert alert-secondary">Belge henüz işlenmedi.</div>
+    }
+
+    @if (content is not null && content.SourceFormat == StoreApp.Models.Enums.DocumentSourceFormat.Pdf)
+    {
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <h2 class="h5">Orijinal Belge</h2>
+                <iframe src="@Url.Action("File", "Documents", new { id = document.Id })" style="width:100%; height:600px; border:1px solid var(--bs-border-color);"></iframe>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <h2 class="h5">Çıkarılan Metin</h2>
+                @{
+                    var rawText = content.RawText ?? string.Empty;
+                    var truncated = rawText.Length > maxTextLength;
+                    var displayText = truncated ? rawText[..maxTextLength] : rawText;
+                }
+                @if (string.IsNullOrWhiteSpace(rawText))
+                {
+                    <p class="text-muted">Metin çıkarılamadı (taranmış PDF olabilir).</p>
+                }
+                else
+                {
+                    <pre style="max-height:600px; overflow:auto; white-space:pre-wrap;">@displayText</pre>
+                    if (truncated)
+                    {
+                        <p class="text-muted small">İlk @maxTextLength karakter gösteriliyor (toplam @rawText.Length karakter).</p>
+                    }
+                }
+            </div>
+        </div>
+    }
+    else if (Model.Tables.Count > 0)
+    {
+        <h2 class="h5">Tablo Önizleme</h2>
+        @foreach (var table in Model.Tables)
+        {
+            <h3 class="h6 mt-3">@table.Name</h3>
+            <div class="table-responsive mb-3">
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            @foreach (var header in table.Headers)
+                            {
+                                <th>@header</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in table.Rows.Take(maxRows))
+                        {
+                            <tr>
+                                @foreach (var cell in row)
+                                {
+                                    <td>@cell</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (table.Rows.Count > maxRows)
+                {
+                    <p class="text-muted small">İlk @maxRows satır gösteriliyor (toplam @table.Rows.Count satır).</p>
+                }
+            </div>
+        }
+    }
+</div>

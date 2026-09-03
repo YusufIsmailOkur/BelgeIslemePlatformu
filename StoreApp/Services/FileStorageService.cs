@@ -34,5 +34,20 @@ namespace StoreApp.Services
 
             return new StoredFile(relativePath, file.FileName, file.Length);
         }
+
+        public Stream OpenRead(string relativePath)
+        {
+            var fullRootPath = Path.GetFullPath(_rootPath);
+            var physicalPath = Path.GetFullPath(Path.Combine(_rootPath, relativePath));
+
+            // relativePath her zaman SaveAsync tarafından üretilir, ama savunma amaçlı
+            // depolama kökü dışına çıkışı (ör. "..") yine de engelliyoruz.
+            if (!physicalPath.StartsWith(fullRootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedAccessException("Geçersiz dosya yolu.");
+            }
+
+            return new FileStream(physicalPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
     }
 }

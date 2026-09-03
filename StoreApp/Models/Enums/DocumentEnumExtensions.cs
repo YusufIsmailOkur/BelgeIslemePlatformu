@@ -42,5 +42,13 @@ namespace StoreApp.Models.Enums
             DocumentStatus.FailedRetry => "text-bg-danger",
             _ => "text-bg-secondary"
         };
+
+        public static string ToDisplayName(this DocumentSourceFormat format) => format switch
+        {
+            DocumentSourceFormat.Pdf => "PDF",
+            DocumentSourceFormat.Excel => "Excel",
+            DocumentSourceFormat.Csv => "CSV",
+            _ => format.ToString()
+        };
     }
 }

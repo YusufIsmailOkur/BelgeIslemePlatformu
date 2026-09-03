@@ -13,6 +13,8 @@ namespace StoreApp.Models.Entities
         public DocumentStatus Status { get; set; }
         public int UploadedByUserId { get; set; }
         public User UploadedByUser { get; set; } = null!;
+        public string? ProcessingError { get; set; }
+        public DocumentContent? Content { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
