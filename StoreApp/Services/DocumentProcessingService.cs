@@ -124,7 +124,7 @@ namespace StoreApp.Services
 
                 var suggestion = _documentTypeClassifier.Classify(parsed.RawText, parsed.Tables);
                 contentRecord.SuggestedDocumentType = suggestion.Type;
-                contentRecord.DocumentTypeConfidence = suggestion.Confidence;
+                contentRecord.DocumentTypeConfidence = ConfidenceCalculator.ApplyOcrConfidence(suggestion.Confidence, ocrConfidence);
 
                 var extraction = _ruleBasedFieldExtractor.Extract(parsed.RawText, parsed.Tables);
                 if (HybridFieldMerger.IsWeak(extraction, hasTables: parsed.Tables.Count > 0))
@@ -132,6 +132,8 @@ namespace StoreApp.Services
                     var aiExtraction = await _aiFieldExtractor.ExtractAsync(parsed.RawText, parsed.Tables, cancellationToken);
                     extraction = HybridFieldMerger.Merge(extraction, aiExtraction);
                 }
+
+                extraction = ConfidenceCalculator.ApplyOcrConfidence(extraction, ocrConfidence);
 
                 contentRecord.ExtractedFieldsJson = extraction.HeaderFields.Count > 0 || extraction.LineItems.Count > 0
                     ? JsonSerializer.Serialize(extraction)

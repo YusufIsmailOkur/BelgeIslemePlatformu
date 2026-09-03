@@ -158,6 +158,41 @@ namespace StoreApp.Tests.Services
         }
 
         [Fact]
+        public async Task ProcessAsync_WhenOcrProcessed_ScalesDocumentTypeAndFieldConfidenceByOcrConfidence()
+        {
+            using var db = CreateDb();
+            var document = CreateDocument(db);
+
+            var parser = new FakeDocumentContentParser(
+                canParse: true,
+                result: new ParsedDocumentContent(DocumentSourceFormat.Pdf, "", Array.Empty<ParsedTable>(), 1, null, null, null, null));
+
+            var renderer = new FakePdfPageRenderer(new PdfPageImage(1, new byte[] { 1 }));
+            var ocrService = new FakeOcrService(_ => new OcrPageResult(1, "Fatura No: 2026-001", 0.5));
+
+            var service = new DocumentProcessingService(
+                db, new FakeFileStorageService(), new FakeAuditLogService(), new[] { parser },
+                renderer, ocrService, new KeywordDocumentTypeClassifier(), new RuleBasedFieldExtractor(),
+                new FakeAiFieldExtractor(), CreateConfiguration());
+
+            await service.ProcessAsync(document.Id);
+
+            var content = await db.DocumentContents.SingleAsync(c => c.DocumentId == document.Id);
+            Assert.Equal(0.5, content.OcrConfidence);
+
+            // Sınıflandırma OCR öncesi 0.70 olurdu ("fatura no" + "fatura" eşleşmesi);
+            // OCR güveniyle (0.5) çarpılınca 0.35'e düşer.
+            Assert.Equal(DocumentType.Invoice, content.SuggestedDocumentType);
+            Assert.Equal(0.35, content.DocumentTypeConfidence);
+
+            // Kural tabanlı çıkarım "Fatura No:" etiketini tam güvenle (1.0) bulur;
+            // OCR güveniyle çarpılınca 0.5'e düşer.
+            var extraction = JsonSerializer.Deserialize<ExtractionResult>(content.ExtractedFieldsJson!);
+            Assert.Equal("2026-001", extraction!.HeaderFields["document_number"].Value);
+            Assert.Equal(0.5, extraction.HeaderFields["document_number"].Confidence);
+        }
+
+        [Fact]
         public async Task ProcessAsync_WhenParserThrows_TransitionsToFailedRetryWithError()
         {
             using var db = CreateDb();

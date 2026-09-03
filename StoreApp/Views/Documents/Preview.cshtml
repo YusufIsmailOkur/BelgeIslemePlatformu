@@ -220,6 +220,7 @@
                             <dt class="col-sm-2">@field.Label</dt>
                             <dd class="col-sm-4">
                                 @extracted.Value
+                                <span class="text-muted">(%@Math.Round(extracted.Confidence * 100))</span>
                                 @if (extracted.Source == "AI")
                                 {
                                     <span class="badge text-bg-info ms-1">AI</span>
@@ -252,6 +253,7 @@
                                             @if (lineItem.Fields.TryGetValue(field.Key, out var value))
                                             {
                                                 @value.Value
+                                                <span class="text-muted">(%@Math.Round(value.Confidence * 100))</span>
                                                 if (value.Source == "AI")
                                                 {
                                                     <span class="badge text-bg-info ms-1">AI</span>
