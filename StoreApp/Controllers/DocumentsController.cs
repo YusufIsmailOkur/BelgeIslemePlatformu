@@ -53,7 +53,7 @@ namespace StoreApp.Controllers
         [HttpPost]
         [Authorize(Policy = Policies.OperatorOrAbove)]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Upload(List<IFormFile> files, CancellationToken cancellationToken)
+        public async Task<IActionResult> Upload(List<IFormFile> files, List<DocumentType>? documentTypes, CancellationToken cancellationToken)
         {
             if (files.Count == 0)
             {
@@ -63,8 +63,13 @@ namespace StoreApp.Controllers
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var results = new List<DocumentUploadResult>();
 
-            foreach (var file in files)
+            for (var i = 0; i < files.Count; i++)
             {
+                var file = files[i];
+                // Tür listesi, dosya seçimi tarayıcı tarafında bozulursa/eksik gönderilirse
+                // kısa kalabilir; bu durumda güvenli varsayılan olarak "Genel Belge" kullanılır.
+                var documentType = documentTypes is { } types && i < types.Count ? types[i] : DocumentType.Other;
+
                 var validation = _fileValidationService.Validate(file);
                 if (!validation.IsValid)
                 {
@@ -80,7 +85,7 @@ namespace StoreApp.Controllers
                     StoragePath = stored.RelativePath,
                     MimeType = file.ContentType,
                     FileSizeBytes = stored.SizeBytes,
-                    DocumentType = DocumentType.Other,
+                    DocumentType = documentType,
                     Status = DocumentStatus.Uploaded,
                     UploadedByUserId = userId,
                     CreatedAt = DateTime.UtcNow,

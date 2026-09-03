@@ -15,6 +15,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
 
+// document-upload.js token'ı form alanı yerine bu header'da gönderiyor (AJAX/FormData akışı);
+// header adı belirtilmezse antiforgery doğrulaması yalnızca form alanına bakar ve istek reddedilir.
+builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
+
 // Not: MVP boyunca SQLite kullanılıyor (yerelde PostgreSQL kurulu olmadığından).
 // docs/ARCHITECTURE.md PostgreSQL/Npgsql kararını içerir; geçiş sonraki bir haftaya bırakıldı.
 builder.Services.AddDbContext<AppDbContext>(options =>

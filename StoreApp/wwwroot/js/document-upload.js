@@ -56,6 +56,7 @@
 
         entriesToUpload.forEach(function (entry) {
             entry.removeBtn.remove();
+            entry.typeSelect.disabled = true;
             entry.statusSpan = document.createElement('span');
             entry.statusSpan.className = 'text-muted';
             entry.statusSpan.textContent = 'Yükleniyor...';
@@ -70,10 +71,20 @@
             var entry = { file: file };
 
             var li = document.createElement('li');
-            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.className = 'list-group-item d-flex justify-content-between align-items-center gap-2';
 
             var nameSpan = document.createElement('span');
+            nameSpan.className = 'flex-grow-1';
             nameSpan.textContent = file.name;
+
+            var typeSelect = document.createElement('select');
+            typeSelect.className = 'form-select form-select-sm w-auto';
+            (window.documentTypeOptions || []).forEach(function (option) {
+                var optionEl = document.createElement('option');
+                optionEl.value = option.value;
+                optionEl.textContent = option.label;
+                typeSelect.appendChild(optionEl);
+            });
 
             var removeBtn = document.createElement('button');
             removeBtn.type = 'button';
@@ -89,10 +100,12 @@
             });
 
             li.appendChild(nameSpan);
+            li.appendChild(typeSelect);
             li.appendChild(removeBtn);
             fileList.appendChild(li);
 
             entry.li = li;
+            entry.typeSelect = typeSelect;
             entry.removeBtn = removeBtn;
             stagedEntries.push(entry);
         });
@@ -108,6 +121,7 @@
         var formData = new FormData();
         entries.forEach(function (entry) {
             formData.append('files', entry.file);
+            formData.append('documentTypes', entry.typeSelect.value);
         });
 
         fetch('/Documents/Upload', {

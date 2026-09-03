@@ -1,5 +1,8 @@
+@using System.Text.Json
 @{
     ViewData["Title"] = "Belge Yükle";
+    var documentTypeOptionsJson = JsonSerializer.Serialize(
+        Enum.GetValues<DocumentType>().Select(type => new { value = type.ToString(), label = type.ToDisplayName() }));
 }
 
 <div class="container py-5">
@@ -27,5 +30,9 @@
 </div>
 
 @section Scripts {
+    <script>
+        // DocumentType enum'ının JSON karşılığı; her dosya için tür seçimi burada üretilir (bkz. document-upload.js).
+        window.documentTypeOptions = @Html.Raw(documentTypeOptionsJson);
+    </script>
     <script src="~/js/document-upload.js" asp-append-version="true"></script>
 }
