@@ -1,6 +1,7 @@
 @model StoreApp.ViewModels.DocumentPreviewViewModel
 @using StoreApp.Models.Fields
 @using StoreApp.Services.Abstractions
+@using StoreApp.ViewModels
 @{
     ViewData["Title"] = "Belge Önizleme";
     var document = Model.Document;
@@ -166,16 +167,18 @@
                                 headerFieldValues.TryGetValue(field.Key, out var extracted);
                                 <dt class="col-sm-4 col-form-label col-form-label-sm">@field.Label</dt>
                                 <dd class="col-sm-8">
-                                    <input type="text" class="form-control form-control-sm" name="headerFields[@field.Key]" value="@extracted?.Value" />
+                                    <input type="text"
+                                           class="form-control form-control-sm @(extracted is not null ? ConfidenceDisplay.InputBorderClass(extracted.Confidence) : "")"
+                                           name="headerFields[@field.Key]" value="@extracted?.Value" />
                                     @if (extracted is not null)
                                     {
-                                        <span class="text-muted small">
-                                            %@Math.Round(extracted.Confidence * 100)
-                                            @if (extracted.Source == "AI")
-                                            {
-                                                <span class="badge text-bg-info">AI</span>
-                                            }
+                                        <span class="badge @ConfidenceDisplay.BadgeClass(extracted.Confidence)" title="Güven skoru">
+                                            @ConfidenceDisplay.WarningIcon(extracted.Confidence) %@Math.Round(extracted.Confidence * 100)
                                         </span>
+                                        @if (extracted.Source == "AI")
+                                        {
+                                            <span class="badge text-bg-info">AI</span>
+                                        }
                                     }
                                 </dd>
                             }
@@ -193,7 +196,9 @@
                                 <dt class="col-sm-4">@field.Label</dt>
                                 <dd class="col-sm-8">
                                     @extracted.Value
-                                    <span class="text-muted">(%@Math.Round(extracted.Confidence * 100))</span>
+                                    <span class="badge @ConfidenceDisplay.BadgeClass(extracted.Confidence)" title="Güven skoru">
+                                        @ConfidenceDisplay.WarningIcon(extracted.Confidence) %@Math.Round(extracted.Confidence * 100)
+                                    </span>
                                     @if (extracted.Source == "AI")
                                     {
                                         <span class="badge text-bg-info ms-1">AI</span>
@@ -233,7 +238,12 @@
                                             @foreach (var field in DocumentFieldSchema.LineItemFields)
                                             {
                                                 lineItems[rowIndex].Fields.TryGetValue(field.Key, out var value);
-                                                <td><input type="text" class="form-control form-control-sm" name="lineItems[@rowIndex][@field.Key]" value="@value?.Value" /></td>
+                                                <td>
+                                                    <input type="text"
+                                                           class="form-control form-control-sm @(value is not null ? ConfidenceDisplay.InputBorderClass(value.Confidence) : "")"
+                                                           name="lineItems[@rowIndex][@field.Key]" value="@value?.Value"
+                                                           title="@(value is not null ? $"Güven skoru: %{Math.Round(value.Confidence * 100)}" : null)" />
+                                                </td>
                                             }
                                             <td><button type="button" class="btn btn-sm btn-outline-danger remove-line-item-row">Sil</button></td>
                                         </tr>
@@ -267,7 +277,9 @@
                                                 @if (lineItem.Fields.TryGetValue(field.Key, out var value))
                                                 {
                                                     @value.Value
-                                                    <span class="text-muted">(%@Math.Round(value.Confidence * 100))</span>
+                                                    <span class="badge @ConfidenceDisplay.BadgeClass(value.Confidence)" title="Güven skoru">
+                                                        @ConfidenceDisplay.WarningIcon(value.Confidence) %@Math.Round(value.Confidence * 100)
+                                                    </span>
                                                     if (value.Source == "AI")
                                                     {
                                                         <span class="badge text-bg-info ms-1">AI</span>
