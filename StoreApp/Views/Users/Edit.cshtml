@@ -1,0 +1,32 @@
+@model StoreApp.ViewModels.EditUserViewModel
+@{
+    ViewData["Title"] = "Kullanıcı Düzenle";
+}
+
+<div class="container py-5" style="max-width: 480px;">
+    <h1 class="h3 mb-4">Kullanıcı Düzenle</h1>
+
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <form asp-controller="Users" asp-action="Edit" asp-route-id="@Model.Id" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <div class="mb-3">
+            <label asp-for="FullName" class="form-label"></label>
+            <input asp-for="FullName" class="form-control" autofocus />
+            <span asp-validation-for="FullName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" autocomplete="off" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="RoleId" class="form-label"></label>
+            <select asp-for="RoleId" asp-items="Model.RoleOptions" class="form-select"></select>
+            <span asp-validation-for="RoleId" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+        <a class="btn btn-outline-secondary" asp-controller="Users" asp-action="Index">Vazgeç</a>
+    </form>
+</div>

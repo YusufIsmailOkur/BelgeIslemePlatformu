@@ -1,0 +1,65 @@
+@model List<User>
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Kullanıcılar";
+    var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+}
+
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Kullanıcılar</h1>
+        <a class="btn btn-primary" asp-controller="Users" asp-action="Create">+ Yeni Kullanıcı</a>
+    </div>
+
+    @if (TempData["UsersError"] is string error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>Ad Soyad</th>
+                    <th>E-posta</th>
+                    <th>Rol</th>
+                    <th>Durum</th>
+                    <th>Son Giriş</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Model)
+                {
+                    <tr>
+                        <td>@user.FullName</td>
+                        <td>@user.Email</td>
+                        <td>@user.Role.Name</td>
+                        <td>
+                            <span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                @(user.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+                        <td>@(user.LastLoginAt is { } lastLogin ? lastLogin.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—")</td>
+                        <td class="text-end">
+                            @if (user.Id == currentUserId)
+                            {
+                                <span class="text-muted small">Kendi hesabınız</span>
+                            }
+                            else
+                            {
+                                <a class="btn btn-sm btn-outline-secondary" asp-controller="Users" asp-action="Edit" asp-route-id="@user.Id">Düzenle</a>
+                                <form asp-controller="Users" asp-action="ToggleActive" asp-route-id="@user.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                        @(user.IsActive ? "Pasif Yap" : "Aktif Yap")
+                                    </button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

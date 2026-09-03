@@ -17,6 +17,10 @@
         {
           <a class="nav-link" asp-controller="Documents" asp-action="Upload">Belge Yükle</a>
         }
+        @if (User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin)))
+        {
+          <a class="nav-link" asp-controller="Users" asp-action="Index">Kullanıcılar</a>
+        }
       </div>
       <div class="navbar-nav">
         @if (User.Identity?.IsAuthenticated == true)

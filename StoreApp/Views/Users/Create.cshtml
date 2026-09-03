@@ -1,0 +1,38 @@
+@model StoreApp.ViewModels.CreateUserViewModel
+@{
+    ViewData["Title"] = "Yeni Kullanıcı";
+}
+
+<div class="container py-5" style="max-width: 480px;">
+    <h1 class="h3 mb-4">Yeni Kullanıcı</h1>
+
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <form asp-controller="Users" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div class="mb-3">
+            <label asp-for="FullName" class="form-label"></label>
+            <input asp-for="FullName" class="form-control" autofocus />
+            <span asp-validation-for="FullName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" autocomplete="off" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="new-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="RoleId" class="form-label"></label>
+            <select asp-for="RoleId" asp-items="Model.RoleOptions" class="form-select">
+                <option value="">Rol seçin</option>
+            </select>
+            <span asp-validation-for="RoleId" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary">Oluştur</button>
+        <a class="btn btn-outline-secondary" asp-controller="Users" asp-action="Index">Vazgeç</a>
+    </form>
+</div>
