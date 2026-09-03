@@ -10,6 +10,7 @@
     const int maxTextLength = 5000;
     var canProcess = User.IsInRole(nameof(RoleCode.Operator)) || User.IsInRole(nameof(RoleCode.Manager)) || User.IsInRole(nameof(RoleCode.SystemAdmin));
     var canReprocess = canProcess && (document.Status == DocumentStatus.Uploaded || document.Status == DocumentStatus.FailedRetry);
+    var canDecide = canProcess && document.Status == DocumentStatus.WaitingValidation;
 }
 
 <div class="container py-5">
@@ -26,6 +27,17 @@
             }
         </div>
         <div>
+            @if (canDecide)
+            {
+                <form asp-controller="Documents" asp-action="Approve" asp-route-id="@document.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-success">Onayla</button>
+                </form>
+                <form asp-controller="Documents" asp-action="Reject" asp-route-id="@document.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-danger">Reddet</button>
+                </form>
+            }
             @if (canReprocess)
             {
                 <form asp-controller="Documents" asp-action="Reprocess" asp-route-id="@document.Id" method="post" class="d-inline">

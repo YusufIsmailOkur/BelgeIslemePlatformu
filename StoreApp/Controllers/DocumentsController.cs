@@ -258,6 +258,62 @@ namespace StoreApp.Controllers
         [HttpPost]
         [Authorize(Policy = Policies.OperatorOrAbove)]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken)
+        {
+            var document = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+            if (document is null)
+            {
+                return NotFound();
+            }
+
+            // Sadece doğrulama bekleyen bir belge onaylanabilir/reddedilebilir; zaten karara
+            // bağlanmış bir belgenin durumu bu ekrandan tekrar değiştirilemez.
+            if (document.Status != DocumentStatus.WaitingValidation)
+            {
+                return RedirectToAction(nameof(Preview), new { id });
+            }
+
+            document.Status = DocumentStatus.Approved;
+            document.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _auditLogService.LogAsync(
+                "Document", document.Id, "Approved", changedBy: userId, cancellationToken: cancellationToken);
+
+            return RedirectToAction(nameof(Preview), new { id });
+        }
+
+        [HttpPost]
+        [Authorize(Policy = Policies.OperatorOrAbove)]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Reject(int id, CancellationToken cancellationToken)
+        {
+            var document = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+            if (document is null)
+            {
+                return NotFound();
+            }
+
+            if (document.Status != DocumentStatus.WaitingValidation)
+            {
+                return RedirectToAction(nameof(Preview), new { id });
+            }
+
+            document.Status = DocumentStatus.Rejected;
+            document.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _auditLogService.LogAsync(
+                "Document", document.Id, "Rejected", changedBy: userId, cancellationToken: cancellationToken);
+
+            return RedirectToAction(nameof(Preview), new { id });
+        }
+
+        [HttpPost]
+        [Authorize(Policy = Policies.OperatorOrAbove)]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Reprocess(int id, CancellationToken cancellationToken)
         {
             var exists = await _db.Documents.AnyAsync(d => d.Id == id, cancellationToken);
